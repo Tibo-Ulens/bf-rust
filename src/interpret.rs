@@ -1,5 +1,5 @@
 use std::fs::File;
-use std::io::{Read, BufWriter, Write};
+use std::io::{BufWriter, Read, Write};
 use std::path::Path;
 
 use crate::Error;
