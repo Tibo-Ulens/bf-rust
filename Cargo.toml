@@ -1,0 +1,18 @@
+[package]
+name = "bf-rust"
+version = "0.1.0"
+edition = "2021"
+description = "Rust brainfuck interpreter"
+readme = "README.md"
+repository = "https://github.com/Tibo-Ulens/bf-rust"
+publish = false
+
+[profile.release]
+opt-level = 3
+lto = "fat"
+strip = true
+codegen-units = 1
+
+[dependencies]
+clap = "4.0.9"
+thiserror = "1.0.37"
