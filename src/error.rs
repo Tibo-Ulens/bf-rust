@@ -3,7 +3,7 @@ pub enum Error {
 	#[error("No file was provided")]
 	NoFile,
 	#[error(transparent)]
-	IoError(#[from] std::io::Error),
+	Io(#[from] std::io::Error),
 	#[error("Failed to read input")]
 	CouldNotReadInput,
 	#[error("Missing opening bracket for bracket at position {0}")]

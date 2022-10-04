@@ -46,7 +46,7 @@ impl Interpreter {
 			}
 		}
 
-		if bracket_stack.len() != 0 {
+		if !(bracket_stack.is_empty()) {
 			return Err(Error::MissingClosingBracket(bracket_stack.pop().unwrap()));
 		}
 
@@ -87,7 +87,7 @@ impl Interpreter {
 					self.memory[self.dp] = self.memory[self.dp].wrapping_sub(1);
 				},
 				b'.' => {
-					writer.write(&[self.memory[self.dp]])?;
+					writer.write_all(&[self.memory[self.dp]])?;
 				},
 				b',' => {
 					writer.flush()?;

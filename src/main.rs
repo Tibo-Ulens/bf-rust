@@ -52,7 +52,6 @@ fn main() {
 		Ok(_) => (),
 		Err(e) => {
 			eprintln!("{}", e);
-			return;
 		},
 	}
 }
