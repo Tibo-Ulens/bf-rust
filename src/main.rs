@@ -3,15 +3,19 @@
 #[macro_use]
 extern crate thiserror;
 
+use std::fs::File;
+use std::io::Read;
 use std::path::PathBuf;
 
 use clap::{Arg, Command};
 
 mod error;
 mod interpret;
+mod transformers;
 
 use error::Error;
 use interpret::Interpreter;
+use transformers::Transformer;
 
 struct Config {
 	file: std::path::PathBuf,
@@ -31,27 +35,23 @@ fn make_config() -> Result<Config, Error> {
 	Ok(Config { file: PathBuf::from(file) })
 }
 
+fn main_() -> Result<(), Error> {
+	let config = make_config()?;
+
+	let file = File::open(&config.file)?;
+	let bytes: Vec<u8> = file.bytes().try_collect()?;
+
+	let instructions = Transformer::transform(&bytes)?;
+	let mut interpreter = Interpreter::new(&instructions);
+
+	interpreter.interpret()?;
+
+	Ok(())
+}
+
 fn main() {
-	let config = match make_config() {
-		Ok(c) => c,
-		Err(e) => {
-			eprintln!("{}", e);
-			return;
-		},
-	};
-
-	let mut interpreter = match Interpreter::new(&config.file) {
-		Ok(i) => i,
-		Err(e) => {
-			eprintln!("{}", e);
-			return;
-		},
-	};
-
-	match interpreter.interpret() {
+	match main_() {
 		Ok(_) => (),
-		Err(e) => {
-			eprintln!("{}", e);
-		},
+		Err(e) => eprintln!("{}", e),
 	}
 }

@@ -1,117 +1,69 @@
-use std::fs::File;
-use std::io::{BufWriter, Read, Write};
-use std::path::Path;
+use std::io::{BufReader, BufWriter, Read, Write};
 
+use crate::transformers::{Instruction, LinkedInstructions};
 use crate::Error;
 
 const MEM_SIZE: usize = 65536;
 
-pub struct Interpreter {
-	ip:              usize,
-	dp:              usize,
-	memory:          [u8; MEM_SIZE],
-	bracket_matches: Vec<usize>,
-	bytes:           Vec<u8>,
+pub struct Interpreter<'i> {
+	ip:     usize,
+	dp:     usize,
+	memory: [u8; MEM_SIZE],
+	insts:  &'i [Instruction],
 }
 
-impl Interpreter {
-	pub fn new(file_path: &Path) -> Result<Self, Error> {
-		let file = File::open(file_path)?;
-		let mut bytes = file.bytes().try_collect::<Vec<u8>>()?;
-		bytes.shrink_to_fit();
-
-		let bracket_matches = vec![0; bytes.len()];
-
-		Ok(Self { ip: 0, dp: 0, memory: [0; MEM_SIZE], bracket_matches, bytes })
-	}
-
-	/// Check that all brackets are balanced and store the indices of
-	/// corresponding brackets in a lookup array
-	fn precompute_bracket_matches(&mut self) -> Result<(), Error> {
-		let mut bracket_stack: Vec<usize> = Vec::new();
-
-		for (idx, byte) in self.bytes.iter().enumerate() {
-			if *byte == b'[' {
-				bracket_stack.push(idx);
-			} else if *byte == b']' {
-				let opening_idx = match bracket_stack.pop() {
-					Some(i) => i,
-					None => {
-						return Err(Error::MissingOpeningBracket(idx));
-					},
-				};
-
-				self.bracket_matches[opening_idx] = idx;
-				self.bracket_matches[idx] = opening_idx;
-			}
-		}
-
-		if !(bracket_stack.is_empty()) {
-			return Err(Error::MissingClosingBracket(bracket_stack.pop().unwrap()));
-		}
-
-		Ok(())
-	}
-
-	/// Remove all bytes that aren't valid brainfuck instructions
-	fn remove_unused_bytes(&mut self) {
-		self.bytes.retain(|&byte| {
-			byte == b'>'
-				|| byte == b'<' || byte == b'+'
-				|| byte == b'-' || byte == b'.'
-				|| byte == b',' || byte == b'['
-				|| byte == b']'
-		});
+impl<'i> Interpreter<'i> {
+	pub fn new(insts: &'i LinkedInstructions) -> Self {
+		Self { ip: 0, dp: 0, memory: [0; MEM_SIZE], insts: &insts.0 }
 	}
 
 	pub fn interpret(&mut self) -> Result<(), Error> {
-		self.remove_unused_bytes();
-		self.bytes.shrink_to_fit();
-		self.precompute_bracket_matches()?;
-		self.bracket_matches.shrink_to_fit();
-
 		let mut writer = BufWriter::new(std::io::stdout());
+		let mut reader = BufReader::new(std::io::stdin());
 
-		while self.ip < self.bytes.len() {
-			match self.bytes[self.ip] {
-				b'>' => {
-					self.dp = (self.dp + 1) % MEM_SIZE;
+		while self.ip < self.insts.len() {
+			match self.insts[self.ip] {
+				Instruction::Right(n) => {
+					self.dp = (self.dp + n) % MEM_SIZE;
 				},
-				b'<' => {
-					self.dp = (self.dp - 1) % MEM_SIZE;
+				Instruction::Left(n) => {
+					self.dp = (self.dp - n) % MEM_SIZE;
 				},
-				b'+' => {
-					self.memory[self.dp] = self.memory[self.dp].wrapping_add(1);
+				Instruction::Add(n) => {
+					self.memory[self.dp] = self.memory[self.dp].wrapping_add(n);
 				},
-				b'-' => {
-					self.memory[self.dp] = self.memory[self.dp].wrapping_sub(1);
+				Instruction::Sub(n) => {
+					self.memory[self.dp] = self.memory[self.dp].wrapping_sub(n);
 				},
-				b'.' => {
+				Instruction::Write => {
 					writer.write_all(&[self.memory[self.dp]])?;
 				},
-				b',' => {
+				Instruction::Read => {
 					writer.flush()?;
-					let input = std::io::stdin().bytes().next().and_then(|res| res.ok());
+					let mut buffer = [0; 1];
+					let bytes = reader.read(&mut buffer)?;
 
-					if let Some(i) = input {
-						self.memory[self.dp] = i;
+					if bytes == 1 {
+						self.memory[self.dp] = buffer[0];
 					} else {
 						return Err(Error::CouldNotReadInput);
 					}
 				},
-				b'[' => {
+				Instruction::BranchIfZero(dest) => {
 					if self.memory[self.dp] == 0 {
-						self.ip = self.bracket_matches[self.ip];
+						self.ip = dest;
 						continue;
 					}
 				},
-				b']' => {
+				Instruction::BranchIfNotZero(dest) => {
 					if self.memory[self.dp] != 0 {
-						self.ip = self.bracket_matches[self.ip];
+						self.ip = dest;
 						continue;
 					}
 				},
-				_ => (),
+				Instruction::Clear => {
+					self.memory[self.dp] = 0;
+				},
 			}
 
 			self.ip += 1;
