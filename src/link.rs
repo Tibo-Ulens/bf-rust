@@ -1,6 +1,5 @@
 use crate::error::Error;
-use crate::transpile::Instruction;
-use crate::{LinkedInstructions, UnlinkedInstructions};
+use crate::instruction::{Instruction, LinkedInstructions, UnlinkedInstructions};
 
 /// Set the jump targets for corresponding `[` and `]` instructions
 pub fn link(mut insts: UnlinkedInstructions) -> Result<LinkedInstructions, Error> {

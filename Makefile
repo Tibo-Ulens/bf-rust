@@ -1,4 +1,7 @@
-.PHONY: fmt lint
+.PHONY: br fmt lint
+
+br: fmt
+	cargo +nightly build --release
 
 fmt:
 	cargo +nightly fmt

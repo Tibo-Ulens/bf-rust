@@ -1,8 +1,7 @@
 use std::io::{BufReader, BufWriter, Read, Write};
 
 use crate::error::Error;
-use crate::transpile::Instruction;
-use crate::LinkedInstructions;
+use crate::instruction::{Instruction, LinkedInstructions};
 
 const MEM_SIZE: usize = 65536;
 
@@ -16,18 +15,6 @@ pub struct Interpreter<'i> {
 impl<'i> Interpreter<'i> {
 	pub fn new(insts: &'i LinkedInstructions) -> Self {
 		Self { ip: 0, dp: 0, memory: [0; MEM_SIZE], insts: &insts.0 }
-	}
-
-	/// Write the given instructions to a file, as bytecode
-	pub fn write_bytecode<W: Write>(&self, writer: &mut W) -> Result<(), Error> {
-		let mut bytes: Vec<u8> = vec![];
-		for inst in self.insts {
-			bytes.extend_from_slice(&inst.to_bytecode());
-		}
-
-		writer.write_all(&bytes)?;
-
-		Ok(())
 	}
 
 	/// Run the provided bytecode

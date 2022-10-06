@@ -17,6 +17,7 @@ dependencies = [
 name = "bf-rust"
 version = "0.1.0"
 dependencies = [
+ "bitflags",
  "clap",
  "thiserror",
 ]
