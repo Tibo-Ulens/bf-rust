@@ -1,7 +1,7 @@
 #[derive(Debug, Error)]
 pub enum Error {
-	#[error("Unknown file extension, only .bf and .bfc are supported")]
-	UnknownFileExtension,
+	#[error("Unknown file '{0}' extension, only .bf and .bfc are supported")]
+	UnknownFileExtension(String),
 	#[error(transparent)]
 	Io(#[from] std::io::Error),
 	#[error("Failed to read input")]

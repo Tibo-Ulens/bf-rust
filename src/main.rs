@@ -9,8 +9,7 @@ use std::path::PathBuf;
 use bf_rust::error::Error;
 use bf_rust::instruction::{LinkedInstructions, UnlinkedInstructions};
 use bf_rust::interpret::Interpreter;
-use bf_rust::link::link;
-use bf_rust::optimise::{optimise, Optimisations};
+use bf_rust::optimise::Optimisations;
 use clap::{Arg, ArgAction, Command};
 
 struct Config {
@@ -80,10 +79,10 @@ fn make_config() -> Result<Config, Error> {
 
 /// Read and transpile brainfuck code, then optimise and run it
 fn handle_file(bytes: &[u8], cfg: &Config) -> Result<(), Error> {
-	let instructions = UnlinkedInstructions::transpile(bytes);
+	let instructions = UnlinkedInstructions::from_text(bytes);
 
-	let optimised_instructions = optimise(instructions, cfg.optimisations);
-	let linked_instructions = link(optimised_instructions)?;
+	let optimised_instructions = instructions.optimise(cfg.optimisations);
+	let linked_instructions = optimised_instructions.link()?;
 
 	if let Some(path) = &cfg.bytecode_path {
 		let mut output_writer = File::create(path)?;
@@ -121,7 +120,7 @@ fn run() -> Result<(), Error> {
 
 	let extension = match config.input_path.extension() {
 		Some(ext) => ext.to_str().unwrap(),
-		None => return Err(Error::UnknownFileExtension),
+		None => return Err(Error::UnknownFileExtension("".to_owned())),
 	};
 
 	if extension == "bf" {
@@ -129,7 +128,7 @@ fn run() -> Result<(), Error> {
 	} else if extension == "bfc" {
 		handle_bytecode(&bytes, &config)
 	} else {
-		Err(Error::UnknownFileExtension)
+		Err(Error::UnknownFileExtension(extension.to_owned()))
 	}
 }
 
