@@ -1,7 +1,8 @@
 use std::io::{BufReader, BufWriter, Read, Write};
 
-use crate::transformers::{Instruction, LinkedInstructions};
-use crate::Error;
+use crate::error::Error;
+use crate::transpile::Instruction;
+use crate::LinkedInstructions;
 
 const MEM_SIZE: usize = 65536;
 
@@ -17,17 +18,30 @@ impl<'i> Interpreter<'i> {
 		Self { ip: 0, dp: 0, memory: [0; MEM_SIZE], insts: &insts.0 }
 	}
 
-	pub fn interpret(&mut self) -> Result<(), Error> {
+	/// Write the given instructions to a file, as bytecode
+	pub fn write_bytecode<W: Write>(&self, writer: &mut W) -> Result<(), Error> {
+		let mut bytes: Vec<u8> = vec![];
+		for inst in self.insts {
+			bytes.extend_from_slice(&inst.to_bytecode());
+		}
+
+		writer.write_all(&bytes)?;
+
+		Ok(())
+	}
+
+	/// Run the provided bytecode
+	pub fn run(&mut self) -> Result<(), Error> {
 		let mut writer = BufWriter::new(std::io::stdout());
 		let mut reader = BufReader::new(std::io::stdin());
 
 		while self.ip < self.insts.len() {
 			match self.insts[self.ip] {
 				Instruction::Right(n) => {
-					self.dp = (self.dp + n) % MEM_SIZE;
+					self.dp = (self.dp + n as usize) % MEM_SIZE;
 				},
 				Instruction::Left(n) => {
-					self.dp = (self.dp - n) % MEM_SIZE;
+					self.dp = (self.dp - n as usize) % MEM_SIZE;
 				},
 				Instruction::Add(n) => {
 					self.memory[self.dp] = self.memory[self.dp].wrapping_add(n);
@@ -51,13 +65,13 @@ impl<'i> Interpreter<'i> {
 				},
 				Instruction::BranchIfZero(dest) => {
 					if self.memory[self.dp] == 0 {
-						self.ip = dest;
+						self.ip = dest as usize;
 						continue;
 					}
 				},
 				Instruction::BranchIfNotZero(dest) => {
 					if self.memory[self.dp] != 0 {
-						self.ip = dest;
+						self.ip = dest as usize;
 						continue;
 					}
 				},
