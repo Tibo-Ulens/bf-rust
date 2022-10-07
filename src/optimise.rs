@@ -57,7 +57,7 @@ impl LinkedInstructions {
 		while let Some(inst) = inst_iter.next() {
 			let optimised_instruction = match inst {
 				Instruction::BranchIfZero { .. } => {
-					if let Instruction::Incr { amount: 1, .. } = inst_iter.peek().unwrap() {
+					if let Instruction::Incr { amount: -1, .. } = inst_iter.peek().unwrap() {
 						inst_iter.next();
 
 						if let Instruction::BranchIfNotZero { .. } = inst_iter.peek().unwrap() {
@@ -83,59 +83,6 @@ impl LinkedInstructions {
 
 	/// Group repeated sequences of add/sub and left/right instructions
 	fn group_instructions(self) -> UnlinkedInstructions {
-		// let mut optimised_insts = Vec::with_capacity(self.0.len());
-
-		// let mut inst_iter = self.0.iter().peekable();
-		// while let Some(inst) = inst_iter.next() {
-		// 	let optimised_inst = match inst {
-		// 		Instruction::Right(_) => {
-		// 			let mut total = 1;
-
-		// 			while let Some(Instruction::Right(_)) = inst_iter.peek() {
-		// 				total += 1;
-		// 				inst_iter.next();
-		// 			}
-
-		// 			Instruction::Right(total)
-		// 		},
-		// 		Instruction::Left(_) => {
-		// 			let mut total = 1;
-
-		// 			while let Some(Instruction::Left(_)) = inst_iter.peek() {
-		// 				total += 1;
-		// 				inst_iter.next();
-		// 			}
-
-		// 			Instruction::Left(total)
-		// 		},
-		// 		Instruction::Add(_) => {
-		// 			let mut total: u8 = 1;
-
-		// 			while let Some(Instruction::Add(_)) = inst_iter.peek() {
-		// 				total = total.wrapping_add(1);
-		// 				inst_iter.next();
-		// 			}
-
-		// 			Instruction::Add(total)
-		// 		},
-		// 		Instruction::Sub(_) => {
-		// 			let mut total: u8 = 1;
-
-		// 			while let Some(Instruction::Sub(_)) = inst_iter.peek() {
-		// 				total = total.wrapping_add(1);
-		// 				inst_iter.next();
-		// 			}
-
-		// 			Instruction::Sub(total)
-		// 		},
-		// 		inst => inst.to_owned(),
-		// 	};
-
-		// 	optimised_insts.push(optimised_inst);
-		// }
-
-		// UnlinkedInstructions(optimised_insts)
-
 		UnlinkedInstructions(
 			self.0
 				.into_iter()
