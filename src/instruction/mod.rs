@@ -72,8 +72,8 @@ impl fmt::Display for Instruction {
 		match self {
 			Self::IncrIp { amount } => write!(f, "IP += {}", amount),
 			Self::Incr { amount, offset } => write!(f, "MEM[DP + {}] += {}", offset, amount),
-			Self::BranchIfZero { destination } => write!(f, "IP = {}", destination),
-			Self::BranchIfNotZero { destination } => write!(f, "IP = {}", destination),
+			Self::BranchIfZero { destination } => write!(f, "BRANCH FWD {}", destination),
+			Self::BranchIfNotZero { destination } => write!(f, "BRANCH BCK {}", destination),
 			Self::Read => write!(f, "READ -> MEM[DP]"),
 			Self::Write => write!(f, "WRITE <- MEM[DP]"),
 			Self::Set { amount, offset } => write!(f, "MEM[DP + {}] = {}", offset, amount),
