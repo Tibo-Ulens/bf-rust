@@ -57,19 +57,20 @@ impl LinkedInstructions {
 		while let Some(inst) = inst_iter.next() {
 			let optimised_instruction = match inst {
 				Instruction::BranchIfZero { .. } => {
-					if let Instruction::Incr { amount: -1, .. } = inst_iter.peek().unwrap() {
-						inst_iter.next();
-
-						if let Instruction::BranchIfNotZero { .. } = inst_iter.peek().unwrap() {
+					match inst_iter.peek().unwrap() {
+						Instruction::Incr { amount: n, .. } if *n == 1 || *n == -1 => {
 							inst_iter.next();
 
-							Instruction::Set { amount: 0, offset: 0 }
-						} else {
-							optimised_insts.push(Instruction::BranchIfZero { destination: 0 });
-							Instruction::Incr { amount: -1, offset: 0 }
-						}
-					} else {
-						Instruction::BranchIfZero { destination: 0 }
+							if let Instruction::BranchIfNotZero { .. } = inst_iter.peek().unwrap() {
+								inst_iter.next();
+
+								Instruction::Set { amount: 0, offset: 0 }
+							} else {
+								optimised_insts.push(Instruction::BranchIfZero { destination: 0 });
+								Instruction::Incr { amount: *n, offset: 0 }
+							}
+						},
+						_ => Instruction::BranchIfZero { destination: 0 },
 					}
 				},
 				inst => inst.to_owned(),
