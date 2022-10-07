@@ -24,17 +24,11 @@ impl<'i> Interpreter<'i> {
 
 		while self.ip < self.insts.len() {
 			match self.insts[self.ip] {
-				Instruction::Right(n) => {
-					self.dp = (self.dp + n as usize) % MEM_SIZE;
+				Instruction::IncrIp { amount } => {
+					self.dp = (self.dp + amount as usize) % MEM_SIZE;
 				},
-				Instruction::Left(n) => {
-					self.dp = (self.dp - n as usize) % MEM_SIZE;
-				},
-				Instruction::Add(n) => {
-					self.memory[self.dp] = self.memory[self.dp].wrapping_add(n);
-				},
-				Instruction::Sub(n) => {
-					self.memory[self.dp] = self.memory[self.dp].wrapping_sub(n);
+				Instruction::Incr { amount, offset } => {
+					self.memory[self.dp + offset as usize] += amount as u8;
 				},
 				Instruction::Write => {
 					writer.write_all(&[self.memory[self.dp]])?;
@@ -50,20 +44,23 @@ impl<'i> Interpreter<'i> {
 						return Err(Error::CouldNotReadInput);
 					}
 				},
-				Instruction::BranchIfZero(dest) => {
+				Instruction::BranchIfZero { destination } => {
 					if self.memory[self.dp] == 0 {
-						self.ip = dest as usize;
+						self.ip = destination as usize;
 						continue;
 					}
 				},
-				Instruction::BranchIfNotZero(dest) => {
+				Instruction::BranchIfNotZero { destination } => {
 					if self.memory[self.dp] != 0 {
-						self.ip = dest as usize;
+						self.ip = destination as usize;
 						continue;
 					}
 				},
-				Instruction::Clear => {
-					self.memory[self.dp] = 0;
+				Instruction::Set { amount, offset } => {
+					self.memory[self.dp + offset as usize] = amount as u8;
+				},
+				Instruction::Mul { amount, offset } => {
+					self.memory[self.dp + offset as usize] *= amount as u8
 				},
 			}
 

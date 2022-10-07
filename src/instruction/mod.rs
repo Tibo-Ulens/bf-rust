@@ -11,45 +11,76 @@ pub struct UnlinkedInstructions(pub Vec<Instruction>);
 #[repr(transparent)]
 pub struct LinkedInstructions(pub Vec<Instruction>);
 
-#[derive(Clone, Copy, Debug)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub struct Position {
+	start: usize,
+	end:   usize,
+}
+
+impl fmt::Display for Position {
+	fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+		if self.start == self.end {
+			write!(f, "{}", self.start)
+		} else {
+			write!(f, "{}-{}", self.start, self.end)
+		}
+	}
+}
+
+pub trait Combine<T> {
+	fn combine(&self, other: T) -> T;
+}
+
+impl Combine<Option<Position>> for Option<Position> {
+	fn combine(&self, other: Self) -> Self {
+		match (*self, other) {
+			(Some(pos1), Some(pos2)) => {
+				let (first_pos, second_pos) =
+					if pos1.start <= pos2.start { (pos1, pos2) } else { (pos2, pos1) };
+
+				// If they're adjacent positions, we can merge them.
+				if first_pos.end + 1 >= second_pos.start {
+					Some(Position { start: first_pos.start, end: second_pos.end })
+				} else {
+					// Otherwise, just use the second position.
+					Some(pos2)
+				}
+			},
+			_ => None,
+		}
+	}
+}
+
+pub type Cell = i8;
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum Instruction {
-	/// `>`
-	Right(u64),
-	/// `<`
-	Left(u64),
-	/// `+`
-	Add(u8),
-	/// `-`
-	Sub(u8),
-	/// `[`
-	BranchIfZero(u64),
-	/// `]`
-	BranchIfNotZero(u64),
-	/// `,`
+	IncrIp { amount: i64 },
+	Incr { amount: Cell, offset: i64 },
+	BranchIfZero { destination: u64 },
+	BranchIfNotZero { destination: u64 },
 	Read,
-	/// `.`
 	Write,
-	/// `[-]`
-	Clear,
+
+	// The following instructions are IR-only, the have no direct BF equivalent
+	Set { amount: Cell, offset: i64 },
+	Mul { amount: Cell, offset: i64 },
 }
 
 impl fmt::Display for Instruction {
 	fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-		write!(
-			f,
-			"{}",
-			match self {
-				Self::Right(n) => ">".repeat(*n as usize),
-				Self::Left(n) => "<".repeat(*n as usize),
-				Self::Add(n) => "+".repeat(*n as usize),
-				Self::Sub(n) => "-".repeat(*n as usize),
-				Self::BranchIfZero(_) => "[".to_owned(),
-				Self::BranchIfNotZero(_) => "]".to_owned(),
-				Self::Read => ",".to_owned(),
-				Self::Write => ".".to_owned(),
-				Self::Clear => "[-]".to_owned(),
-			}
-		)
+		match self {
+			Self::IncrIp { amount } => write!(f, "IP += {}", amount),
+			Self::Incr { amount, offset } => write!(f, "MEM[DP + {}] += {}", offset, amount),
+			Self::BranchIfZero { destination } => write!(f, "IP = {}", destination),
+			Self::BranchIfNotZero { destination } => write!(f, "IP = {}", destination),
+			Self::Read => write!(f, "READ -> MEM[DP]"),
+			Self::Write => write!(f, "WRITE <- MEM[DP]"),
+			Self::Set { amount, offset } => write!(f, "MEM[DP + {}] = {}", offset, amount),
+			Self::Mul { amount, offset } => {
+				write!(f, "MEM[DP + {}] += MEM[D] * {}", offset, amount)
+			},
+		}
 	}
 }
 
@@ -57,48 +88,53 @@ impl Instruction {
 	/// Encode the instruction as bytecode
 	pub fn to_bytecode(&self) -> Vec<u8> {
 		match self {
-			Self::Right(n) => {
+			Self::IncrIp { amount } => {
 				let mut inst_bytes = vec![0];
-				let parts: [u8; 8] = n.to_be_bytes();
-				inst_bytes.extend_from_slice(&parts);
+				let amt_parts: [u8; 8] = amount.to_be_bytes();
+				inst_bytes.extend_from_slice(&amt_parts);
 
 				inst_bytes
 			},
-			Self::Left(n) => {
-				let mut inst_bytes = vec![1];
-				let parts: [u8; 8] = n.to_be_bytes();
-				inst_bytes.extend_from_slice(&parts);
+			Self::Incr { amount, offset } => {
+				let mut inst_bytes = vec![1, *amount as u8];
+				let ofst_parts: [u8; 8] = offset.to_be_bytes();
+				inst_bytes.extend_from_slice(&ofst_parts);
 
 				inst_bytes
 			},
-			Self::Add(n) => {
-				vec![2, *n]
-			},
-			Self::Sub(n) => {
-				vec![3, *n]
-			},
-			Self::BranchIfZero(n) => {
-				let mut inst_bytes = vec![4];
-				let parts: [u8; 8] = n.to_be_bytes();
-				inst_bytes.extend_from_slice(&parts);
+			Self::BranchIfZero { destination } => {
+				let mut inst_bytes = vec![2];
+				let dest_parts: [u8; 8] = destination.to_be_bytes();
+				inst_bytes.extend_from_slice(&dest_parts);
 
 				inst_bytes
 			},
-			Self::BranchIfNotZero(n) => {
-				let mut inst_bytes = vec![5];
-				let parts: [u8; 8] = n.to_be_bytes();
-				inst_bytes.extend_from_slice(&parts);
+			Self::BranchIfNotZero { destination } => {
+				let mut inst_bytes = vec![3];
+				let dest_parts: [u8; 8] = destination.to_be_bytes();
+				inst_bytes.extend_from_slice(&dest_parts);
 
 				inst_bytes
 			},
 			Self::Read => {
-				vec![6]
+				vec![4]
 			},
 			Self::Write => {
-				vec![7]
+				vec![5]
 			},
-			Self::Clear => {
-				vec![8]
+			Self::Set { amount, offset } => {
+				let mut inst_bytes = vec![6, *amount as u8];
+				let ofst_parts: [u8; 8] = offset.to_be_bytes();
+				inst_bytes.extend_from_slice(&ofst_parts);
+
+				inst_bytes
+			},
+			Self::Mul { amount, offset } => {
+				let mut inst_bytes = vec![7, *amount as u8];
+				let ofst_parts: [u8; 8] = offset.to_be_bytes();
+				inst_bytes.extend_from_slice(&ofst_parts);
+
+				inst_bytes
 			},
 		}
 	}

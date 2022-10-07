@@ -1,3 +1,5 @@
+use itertools::Itertools;
+
 use crate::error::Error;
 use crate::instruction::{Instruction, LinkedInstructions, UnlinkedInstructions};
 
@@ -48,26 +50,26 @@ impl UnlinkedInstructions {
 
 impl LinkedInstructions {
 	/// Combine `[-]` into a `clear` instruction
-	fn combine_clears(&self) -> UnlinkedInstructions {
+	fn combine_clears(self) -> UnlinkedInstructions {
 		let mut optimised_insts = Vec::with_capacity(self.0.len());
 
 		let mut inst_iter = self.0.iter().peekable();
 		while let Some(inst) = inst_iter.next() {
 			let optimised_instruction = match inst {
-				Instruction::BranchIfZero(_) => {
-					if let Some(Instruction::Sub(_)) = inst_iter.peek() {
+				Instruction::BranchIfZero { .. } => {
+					if let Instruction::Incr { amount: 1, .. } = inst_iter.peek().unwrap() {
 						inst_iter.next();
 
-						if let Some(Instruction::BranchIfNotZero(_)) = inst_iter.peek() {
+						if let Instruction::BranchIfNotZero { .. } = inst_iter.peek().unwrap() {
 							inst_iter.next();
 
-							Instruction::Clear
+							Instruction::Set { amount: 0, offset: 0 }
 						} else {
-							optimised_insts.push(Instruction::BranchIfZero(0));
-							Instruction::Sub(1)
+							optimised_insts.push(Instruction::BranchIfZero { destination: 0 });
+							Instruction::Incr { amount: -1, offset: 0 }
 						}
 					} else {
-						Instruction::BranchIfZero(0)
+						Instruction::BranchIfZero { destination: 0 }
 					}
 				},
 				inst => inst.to_owned(),
@@ -80,58 +82,90 @@ impl LinkedInstructions {
 	}
 
 	/// Group repeated sequences of add/sub and left/right instructions
-	fn group_instructions(&self) -> UnlinkedInstructions {
-		let mut optimised_insts = Vec::with_capacity(self.0.len());
+	fn group_instructions(self) -> UnlinkedInstructions {
+		// let mut optimised_insts = Vec::with_capacity(self.0.len());
 
-		let mut inst_iter = self.0.iter().peekable();
-		while let Some(inst) = inst_iter.next() {
-			let optimised_inst = match inst {
-				Instruction::Right(_) => {
-					let mut total = 1;
+		// let mut inst_iter = self.0.iter().peekable();
+		// while let Some(inst) = inst_iter.next() {
+		// 	let optimised_inst = match inst {
+		// 		Instruction::Right(_) => {
+		// 			let mut total = 1;
 
-					while let Some(Instruction::Right(_)) = inst_iter.peek() {
-						total += 1;
-						inst_iter.next();
+		// 			while let Some(Instruction::Right(_)) = inst_iter.peek() {
+		// 				total += 1;
+		// 				inst_iter.next();
+		// 			}
+
+		// 			Instruction::Right(total)
+		// 		},
+		// 		Instruction::Left(_) => {
+		// 			let mut total = 1;
+
+		// 			while let Some(Instruction::Left(_)) = inst_iter.peek() {
+		// 				total += 1;
+		// 				inst_iter.next();
+		// 			}
+
+		// 			Instruction::Left(total)
+		// 		},
+		// 		Instruction::Add(_) => {
+		// 			let mut total: u8 = 1;
+
+		// 			while let Some(Instruction::Add(_)) = inst_iter.peek() {
+		// 				total = total.wrapping_add(1);
+		// 				inst_iter.next();
+		// 			}
+
+		// 			Instruction::Add(total)
+		// 		},
+		// 		Instruction::Sub(_) => {
+		// 			let mut total: u8 = 1;
+
+		// 			while let Some(Instruction::Sub(_)) = inst_iter.peek() {
+		// 				total = total.wrapping_add(1);
+		// 				inst_iter.next();
+		// 			}
+
+		// 			Instruction::Sub(total)
+		// 		},
+		// 		inst => inst.to_owned(),
+		// 	};
+
+		// 	optimised_insts.push(optimised_inst);
+		// }
+
+		// UnlinkedInstructions(optimised_insts)
+
+		UnlinkedInstructions(
+			self.0
+				.into_iter()
+				.coalesce(|prev, curr| {
+					if let Instruction::Incr { amount: prev_amt, offset: prev_ofst } = prev {
+						if let Instruction::Incr { amount, offset } = curr {
+							if prev_ofst == offset {
+								return Ok(Instruction::Incr { amount: prev_amt + amount, offset });
+							}
+						}
 					}
 
-					Instruction::Right(total)
-				},
-				Instruction::Left(_) => {
-					let mut total = 1;
-
-					while let Some(Instruction::Left(_)) = inst_iter.peek() {
-						total += 1;
-						inst_iter.next();
+					Err((prev, curr))
+				})
+				.coalesce(|prev, curr| {
+					if let Instruction::IncrIp { amount: prev_amt } = prev {
+						if let Instruction::IncrIp { amount } = curr {
+							return Ok(Instruction::IncrIp { amount: prev_amt + amount });
+						}
 					}
 
-					Instruction::Left(total)
-				},
-				Instruction::Add(_) => {
-					let mut total: u8 = 1;
-
-					while let Some(Instruction::Add(_)) = inst_iter.peek() {
-						total = total.wrapping_add(1);
-						inst_iter.next();
-					}
-
-					Instruction::Add(total)
-				},
-				Instruction::Sub(_) => {
-					let mut total: u8 = 1;
-
-					while let Some(Instruction::Sub(_)) = inst_iter.peek() {
-						total = total.wrapping_add(1);
-						inst_iter.next();
-					}
-
-					Instruction::Sub(total)
-				},
-				inst => inst.to_owned(),
-			};
-
-			optimised_insts.push(optimised_inst);
-		}
-
-		UnlinkedInstructions(optimised_insts)
+					Err((prev, curr))
+				})
+				.filter(|i| {
+					!(matches!(
+						i,
+						Instruction::Incr { amount: 0, .. } | Instruction::IncrIp { amount: 0 }
+					))
+				})
+				.collect(),
+		)
 	}
 }
