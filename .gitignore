@@ -1,4 +1,5 @@
 /target
+/tests
 *.bf
 *.bfc
 *.bfs
