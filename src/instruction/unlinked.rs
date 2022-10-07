@@ -6,14 +6,14 @@ impl UnlinkedInstructions {
 	pub fn from_text(bytes: &[u8]) -> UnlinkedInstructions {
 		let mut unlinked_insts = Vec::with_capacity(bytes.len());
 
-		for &byte in bytes.iter() {
+		for byte in bytes.iter() {
 			unlinked_insts.push(match byte {
-				b'>' => Instruction::Right(1),
-				b'<' => Instruction::Left(1),
-				b'+' => Instruction::Add(1),
-				b'-' => Instruction::Sub(1),
-				b'[' => Instruction::BranchIfZero(0),
-				b']' => Instruction::BranchIfNotZero(0),
+				b'>' => Instruction::IncrIp { amount: 1 },
+				b'<' => Instruction::IncrIp { amount: -1 },
+				b'+' => Instruction::Incr { amount: 1, offset: 0 },
+				b'-' => Instruction::Incr { amount: -1, offset: 0 },
+				b'[' => Instruction::BranchIfZero { destination: 0 },
+				b']' => Instruction::BranchIfNotZero { destination: 0 },
 				b',' => Instruction::Read,
 				b'.' => Instruction::Write,
 				_ => continue,
@@ -28,13 +28,13 @@ impl UnlinkedInstructions {
 		let mut jump_stack: Vec<usize> = Vec::with_capacity(5);
 
 		for i in 0..self.0.len() {
-			match self.0[i] {
+			match &self.0[i] {
 				// [
-				Instruction::BranchIfZero(_) => {
+				Instruction::BranchIfZero { .. } => {
 					jump_stack.push(i);
 				},
 				// ]
-				Instruction::BranchIfNotZero(_) => {
+				Instruction::BranchIfNotZero { .. } => {
 					let opening_idx = match jump_stack.pop() {
 						Some(op_idx) => op_idx,
 						None => {
@@ -43,9 +43,9 @@ impl UnlinkedInstructions {
 					};
 
 					// The current instruction (]) needs to point to the opening [
-					self.0[i] = Instruction::BranchIfNotZero(opening_idx as u64);
+					self.0[i] = Instruction::BranchIfNotZero { destination: opening_idx as u64 };
 					// The corresponding [ needs to point to the current instruction
-					self.0[opening_idx] = Instruction::BranchIfZero(i as u64);
+					self.0[opening_idx] = Instruction::BranchIfZero { destination: i as u64 };
 				},
 				_ => (),
 			}

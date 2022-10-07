@@ -15,6 +15,7 @@ use clap::{Arg, ArgAction, Command};
 struct Config {
 	input_path:    PathBuf,
 	bytecode_path: Option<PathBuf>,
+	symcode_path:  Option<PathBuf>,
 	optimisations: Optimisations,
 }
 
@@ -30,11 +31,20 @@ fn make_config() -> Result<Config, Error> {
 				.help("If set, emit bytecode instead of running the file")
 				.short('b')
 				.long("emit-bytecode")
-				.action(ArgAction::SetTrue),
+				.action(ArgAction::SetTrue)
+				.conflicts_with("emit_symcode"),
+		)
+		.arg(
+			Arg::new("emit_symcode")
+				.help("If set, emit symbolic code instead of running the file")
+				.short('s')
+				.long("emit-symcode")
+				.action(ArgAction::SetTrue)
+				.conflicts_with("emit_bytecode"),
 		)
 		.arg(
 			Arg::new("output_file")
-				.help("The file to write the bytecode to")
+				.help("The file to write the bytecode/symbolic code to")
 				.short('p')
 				.long("output")
 				.action(ArgAction::Set),
@@ -62,8 +72,8 @@ fn make_config() -> Result<Config, Error> {
 	};
 
 	let bytecode_path = if matches.get_flag("emit_bytecode") {
-		match output_path_raw {
-			Some(p) => Some(p),
+		match &output_path_raw {
+			Some(p) => Some(p.to_owned()),
 			None => {
 				let mut original = input_path.clone();
 				original.set_extension("bfc");
@@ -74,7 +84,25 @@ fn make_config() -> Result<Config, Error> {
 		None
 	};
 
-	Ok(Config { input_path, bytecode_path, optimisations: Optimisations::from_strings(&opt_types) })
+	let symcode_path = if matches.get_flag("emit_symcode") {
+		match &output_path_raw {
+			Some(p) => Some(p.to_owned()),
+			None => {
+				let mut original = input_path.clone();
+				original.set_extension("bfs");
+				Some(original)
+			},
+		}
+	} else {
+		None
+	};
+
+	Ok(Config {
+		input_path,
+		bytecode_path,
+		symcode_path,
+		optimisations: Optimisations::from_strings(&opt_types),
+	})
 }
 
 /// Read and transpile brainfuck code, then optimise and run it
@@ -88,6 +116,17 @@ fn handle_file(bytes: &[u8], cfg: &Config) -> Result<(), Error> {
 		let bytecode = optimised_instructions.to_bytecode();
 
 		output_writer.write_all(&bytecode)?;
+		Ok(())
+	} else if let Some(path) = &cfg.symcode_path {
+		let mut output_writer = File::create(path)?;
+
+		let mut repr = String::with_capacity(optimised_instructions.0.len() * 4);
+		for i in optimised_instructions.0 {
+			repr.push_str(&i.to_string());
+			repr.push('\n');
+		}
+
+		output_writer.write_all(repr.as_bytes())?;
 		Ok(())
 	} else {
 		let mut interpreter = Interpreter::new(&optimised_instructions);
@@ -104,6 +143,17 @@ fn handle_bytecode(bytes: &[u8], cfg: &Config) -> Result<(), Error> {
 		let bytecode = linked_instructions.to_bytecode();
 
 		output_writer.write_all(&bytecode)?;
+		Ok(())
+	} else if let Some(path) = &cfg.symcode_path {
+		let mut output_writer = File::create(path)?;
+
+		let mut repr = String::with_capacity(linked_instructions.0.len() * 4);
+		for i in linked_instructions.0 {
+			repr.push_str(&i.to_string());
+			repr.push('\n');
+		}
+
+		output_writer.write_all(repr.as_bytes())?;
 		Ok(())
 	} else {
 		let mut interpreter = Interpreter::new(&linked_instructions);

@@ -1,4 +1,20 @@
+use std::slice::Iter;
+
 use super::{Instruction, LinkedInstructions};
+
+/// Take 8 bytes from an iterator to make 64 bit values
+fn take8(i: &mut Iter<u8>) -> [u8; 8] {
+	[
+		*i.next().unwrap(),
+		*i.next().unwrap(),
+		*i.next().unwrap(),
+		*i.next().unwrap(),
+		*i.next().unwrap(),
+		*i.next().unwrap(),
+		*i.next().unwrap(),
+		*i.next().unwrap(),
+	]
+}
 
 impl LinkedInstructions {
 	/// Convert the instructions into a stream of bytecode
@@ -19,70 +35,46 @@ impl LinkedInstructions {
 		while let Some(b) = byte_iter.next() {
 			let inst = match b {
 				0 => {
-					let parts: [u8; 8] = [
-						*byte_iter.next().unwrap(),
-						*byte_iter.next().unwrap(),
-						*byte_iter.next().unwrap(),
-						*byte_iter.next().unwrap(),
-						*byte_iter.next().unwrap(),
-						*byte_iter.next().unwrap(),
-						*byte_iter.next().unwrap(),
-						*byte_iter.next().unwrap(),
-					];
-					let offset = u64::from_be_bytes(parts);
+					let amt_parts = take8(&mut byte_iter);
+					let amount = i64::from_be_bytes(amt_parts);
 
-					Instruction::Right(offset)
+					Instruction::IncrIp { amount }
 				},
 				1 => {
-					let parts: [u8; 8] = [
-						*byte_iter.next().unwrap(),
-						*byte_iter.next().unwrap(),
-						*byte_iter.next().unwrap(),
-						*byte_iter.next().unwrap(),
-						*byte_iter.next().unwrap(),
-						*byte_iter.next().unwrap(),
-						*byte_iter.next().unwrap(),
-						*byte_iter.next().unwrap(),
-					];
-					let offset = u64::from_be_bytes(parts);
+					let amount = *byte_iter.next().unwrap() as i8;
+					let ofst_parts = take8(&mut byte_iter);
+					let offset = i64::from_be_bytes(ofst_parts);
 
-					Instruction::Left(offset)
+					Instruction::Incr { amount, offset }
 				},
-				2 => Instruction::Add(*byte_iter.next().unwrap()),
-				3 => Instruction::Sub(*byte_iter.next().unwrap()),
-				4 => {
-					let parts: [u8; 8] = [
-						*byte_iter.next().unwrap(),
-						*byte_iter.next().unwrap(),
-						*byte_iter.next().unwrap(),
-						*byte_iter.next().unwrap(),
-						*byte_iter.next().unwrap(),
-						*byte_iter.next().unwrap(),
-						*byte_iter.next().unwrap(),
-						*byte_iter.next().unwrap(),
-					];
-					let offset = u64::from_be_bytes(parts);
+				2 => {
+					let parts = take8(&mut byte_iter);
+					let destination = u64::from_be_bytes(parts);
 
-					Instruction::BranchIfZero(offset)
+					Instruction::BranchIfZero { destination }
 				},
-				5 => {
-					let parts: [u8; 8] = [
-						*byte_iter.next().unwrap(),
-						*byte_iter.next().unwrap(),
-						*byte_iter.next().unwrap(),
-						*byte_iter.next().unwrap(),
-						*byte_iter.next().unwrap(),
-						*byte_iter.next().unwrap(),
-						*byte_iter.next().unwrap(),
-						*byte_iter.next().unwrap(),
-					];
-					let offset = u64::from_be_bytes(parts);
+				3 => {
+					let parts = take8(&mut byte_iter);
+					let destination = u64::from_be_bytes(parts);
 
-					Instruction::BranchIfNotZero(offset)
+					Instruction::BranchIfNotZero { destination }
 				},
-				6 => Instruction::Read,
-				7 => Instruction::Write,
-				8 => Instruction::Clear,
+				4 => Instruction::Read,
+				5 => Instruction::Write,
+				6 => {
+					let amount = *byte_iter.next().unwrap() as i8;
+					let ofst_parts = take8(&mut byte_iter);
+					let offset = i64::from_be_bytes(ofst_parts);
+
+					Instruction::Set { amount, offset }
+				},
+				7 => {
+					let amount = *byte_iter.next().unwrap() as i8;
+					let ofst_parts = take8(&mut byte_iter);
+					let offset = i64::from_be_bytes(ofst_parts);
+
+					Instruction::Mul { amount, offset }
+				},
 				_ => unreachable!(),
 			};
 
