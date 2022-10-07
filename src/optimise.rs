@@ -1,3 +1,6 @@
+use std::collections::HashMap;
+use std::hash::Hash;
+
 use itertools::Itertools;
 
 use crate::error::Error;
@@ -7,6 +10,7 @@ bitflags! {
 	pub struct Optimisations: u8 {
 		const COMBINE_CLEARS     = 0b00000001;
 		const GROUP_INSTRUCTIONS = 0b00000010;
+		const REORDER_INSTRUCTIONS = 0b00000100;
 	}
 }
 
@@ -19,6 +23,7 @@ impl Optimisations {
 				"all" => opts.set(Self::all(), true),
 				"combine-clears" => opts.set(Self::COMBINE_CLEARS, true),
 				"group-instructions" => opts.set(Self::GROUP_INSTRUCTIONS, true),
+				"reorder-instructions" => opts.set(Self::REORDER_INSTRUCTIONS, true),
 				_ => (),
 			}
 		}
@@ -43,13 +48,16 @@ impl UnlinkedInstructions {
 		if opts.contains(Optimisations::GROUP_INSTRUCTIONS) {
 			optimised_insts = optimised_insts.group_instructions().link()?;
 		}
+		if opts.contains(Optimisations::REORDER_INSTRUCTIONS) {
+			optimised_insts = optimised_insts.reorder().link()?;
+		}
 
 		Ok(optimised_insts)
 	}
 }
 
 impl LinkedInstructions {
-	/// Combine `[-]` into a `clear` instruction
+	/// Combine `[-]` and `[+]` into a Set 0 instruction
 	fn combine_clears(self) -> UnlinkedInstructions {
 		let mut optimised_insts = Vec::with_capacity(self.0.len());
 
@@ -82,7 +90,7 @@ impl LinkedInstructions {
 		UnlinkedInstructions(optimised_insts)
 	}
 
-	/// Group repeated sequences of add/sub and left/right instructions
+	/// Group repeated sequences of Incr and IncrIp instructions into one
 	fn group_instructions(self) -> UnlinkedInstructions {
 		UnlinkedInstructions(
 			self.0
@@ -116,4 +124,90 @@ impl LinkedInstructions {
 				.collect(),
 		)
 	}
+
+	/// Reorder Incr and IncrIp instructions so the Incr instructions use
+	/// offsets and there's only one IncrIp instruction at the end
+	///
+	/// eg. `++>+++>+` would become
+	/// Incr { amount: 2, offset: 0}
+	/// Incr { amount: 3, offset: 1}
+	/// Incr { amount: 1, offset: 2}
+	/// IncrIp { amount: 2 }
+	fn reorder(self) -> UnlinkedInstructions {
+		let mut sequence = vec![];
+		let mut result = vec![];
+
+		for inst in self.0 {
+			match inst {
+				Instruction::Incr { .. } | Instruction::Set { .. } | Instruction::IncrIp { .. } => {
+					sequence.push(inst);
+				},
+				_ => {
+					if !(sequence.is_empty()) {
+						result.extend(reorder_sequence(&sequence));
+						sequence = vec![];
+					}
+
+					result.push(inst);
+				},
+			}
+		}
+
+		if !(sequence.is_empty()) {
+			result.extend(reorder_sequence(&sequence));
+		}
+
+		UnlinkedInstructions(result)
+	}
+}
+
+/// Given a hashmap with sortable keys, return a vec of the values sorted by
+/// their keys
+fn order_hmap_values<K: Ord + Hash + Eq, V>(map: HashMap<K, V>) -> Vec<V> {
+	let mut items: Vec<(K, V)> = map.into_iter().collect();
+	items.sort_by(|a, b| a.0.cmp(&b.0));
+	items.into_iter().map(|(_, v)| v).collect()
+}
+
+/// Given a set of Incr, IncrIp, and Set instructions, reorder them by offset
+/// so there's only a single IncrIp
+fn reorder_sequence(insts: &[Instruction]) -> Vec<Instruction> {
+	// Keeps track of instructions with the same offset
+	let mut insts_by_offset: HashMap<i64, Vec<Instruction>> = HashMap::new();
+	// Keeps track of the current offset as set by IncrIp instructions
+	let mut current_offset = 0;
+
+	for inst in insts {
+		match inst {
+			Instruction::Incr { amount, offset } => {
+				let new_offset = current_offset + offset;
+				let offset_vec = insts_by_offset.entry(new_offset).or_insert_with(Vec::new);
+				offset_vec.push(Instruction::Incr { amount: *amount, offset: new_offset });
+			},
+			Instruction::Set { amount, offset } => {
+				let new_offset = current_offset + offset;
+				let offset_vec = insts_by_offset.entry(new_offset).or_insert_with(Vec::new);
+				offset_vec.push(Instruction::Set { amount: *amount, offset: new_offset });
+			},
+			Instruction::IncrIp { amount } => {
+				current_offset += amount;
+			},
+			// Any other instructions are caller-ensured not to be present
+			_ => unreachable!(),
+		}
+	}
+
+	// Add all the reordered Incr/Set instructions in order of increasing
+	// offset (for aestheticc)
+	let mut result = vec![];
+	for insts in order_hmap_values(insts_by_offset) {
+		result.extend(insts);
+	}
+
+	// If there was net movement, add an IncrIp instruction to reflect it
+	if current_offset != 0 {
+		result.push(Instruction::IncrIp { amount: current_offset })
+	}
+
+	result
 }

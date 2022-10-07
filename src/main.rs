@@ -56,7 +56,12 @@ fn make_config() -> Result<Config, Error> {
 				.long("optimise")
 				.action(ArgAction::Set)
 				.value_delimiter(',')
-				.value_parser(["all", "combine-clears", "group-instructions"]),
+				.value_parser([
+					"all",
+					"combine-clears",
+					"group-instructions",
+					"reorder-instructions",
+				]),
 		)
 		.arg(Arg::new("file").help("The brainfuck file to run").index(1).required(true))
 		.get_matches();
