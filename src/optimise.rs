@@ -1,4 +1,5 @@
-use crate::instruction::{Instruction, UnlinkedInstructions};
+use crate::error::Error;
+use crate::instruction::{Instruction, LinkedInstructions, UnlinkedInstructions};
 
 bitflags! {
 	pub struct Optimisations: u8 {
@@ -32,18 +33,20 @@ impl UnlinkedInstructions {
 	/// instruction
 	///  - Instruction grouping: repeated sequences of add/sub and left/right
 	/// instructions get combined into a single instruction
-	pub fn optimise(self, opts: Optimisations) -> Self {
-		let mut optimised_insts = self;
+	pub fn optimise(self, opts: Optimisations) -> Result<LinkedInstructions, Error> {
+		let mut optimised_insts = self.link()?;
 		if opts.contains(Optimisations::COMBINE_CLEARS) {
-			optimised_insts = optimised_insts.combine_clears();
+			optimised_insts = optimised_insts.combine_clears().link()?;
 		}
 		if opts.contains(Optimisations::GROUP_INSTRUCTIONS) {
-			optimised_insts = optimised_insts.group_instructions();
+			optimised_insts = optimised_insts.group_instructions().link()?;
 		}
 
-		optimised_insts
+		Ok(optimised_insts)
 	}
+}
 
+impl LinkedInstructions {
 	/// Combine `[-]` into a `clear` instruction
 	fn combine_clears(&self) -> UnlinkedInstructions {
 		let mut optimised_insts = Vec::with_capacity(self.0.len());

@@ -81,17 +81,16 @@ fn make_config() -> Result<Config, Error> {
 fn handle_file(bytes: &[u8], cfg: &Config) -> Result<(), Error> {
 	let instructions = UnlinkedInstructions::from_text(bytes);
 
-	let optimised_instructions = instructions.optimise(cfg.optimisations);
-	let linked_instructions = optimised_instructions.link()?;
+	let optimised_instructions = instructions.optimise(cfg.optimisations)?;
 
 	if let Some(path) = &cfg.bytecode_path {
 		let mut output_writer = File::create(path)?;
-		let bytecode = linked_instructions.to_bytecode();
+		let bytecode = optimised_instructions.to_bytecode();
 
 		output_writer.write_all(&bytecode)?;
 		Ok(())
 	} else {
-		let mut interpreter = Interpreter::new(&linked_instructions);
+		let mut interpreter = Interpreter::new(&optimised_instructions);
 		interpreter.run()
 	}
 }
