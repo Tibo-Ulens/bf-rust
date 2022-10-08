@@ -57,16 +57,16 @@ pub type Cell = i8;
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum Instruction {
-	IncrDp { amount: i64 },
-	Incr { amount: Cell, offset: i64 },
+	IncrDp { amount: i16 },
+	Incr { amount: Cell, offset: i16 },
 	BranchIfZero { destination: u64 },
 	BranchIfNotZero { destination: u64 },
 	Read,
 	Write,
 
 	// The following instructions are IR-only, the have no direct BF equivalent
-	Set { amount: Cell, offset: i64 },
-	Mul { amount: Cell, offset: i64 },
+	Set { amount: Cell, offset: i16 },
+	Mul { amount: Cell, offset: i16 },
 }
 
 impl fmt::Display for Instruction {
@@ -92,14 +92,14 @@ impl Instruction {
 		match self {
 			Self::IncrDp { amount } => {
 				let mut inst_bytes = vec![0];
-				let amt_parts: [u8; 8] = amount.to_be_bytes();
+				let amt_parts: [u8; 2] = amount.to_be_bytes();
 				inst_bytes.extend_from_slice(&amt_parts);
 
 				inst_bytes
 			},
 			Self::Incr { amount, offset } => {
 				let mut inst_bytes = vec![1, *amount as u8];
-				let ofst_parts: [u8; 8] = offset.to_be_bytes();
+				let ofst_parts: [u8; 2] = offset.to_be_bytes();
 				inst_bytes.extend_from_slice(&ofst_parts);
 
 				inst_bytes
@@ -126,14 +126,14 @@ impl Instruction {
 			},
 			Self::Set { amount, offset } => {
 				let mut inst_bytes = vec![6, *amount as u8];
-				let ofst_parts: [u8; 8] = offset.to_be_bytes();
+				let ofst_parts: [u8; 2] = offset.to_be_bytes();
 				inst_bytes.extend_from_slice(&ofst_parts);
 
 				inst_bytes
 			},
 			Self::Mul { amount, offset } => {
 				let mut inst_bytes = vec![7, *amount as u8];
-				let ofst_parts: [u8; 8] = offset.to_be_bytes();
+				let ofst_parts: [u8; 2] = offset.to_be_bytes();
 				inst_bytes.extend_from_slice(&ofst_parts);
 
 				inst_bytes
