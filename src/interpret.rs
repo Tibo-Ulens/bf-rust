@@ -24,11 +24,11 @@ impl<'i> Interpreter<'i> {
 
 		while self.ip < self.insts.len() {
 			match self.insts[self.ip] {
-				Instruction::IncrIp { amount } => {
+				Instruction::IncrDp { amount } => {
 					self.dp = (self.dp + amount as usize) % MEM_SIZE;
 				},
 				Instruction::Incr { amount, offset } => {
-					self.memory[self.dp + offset as usize] += amount as u8;
+					self.memory[(self.dp + offset as usize).rem_euclid(MEM_SIZE)] += amount as u8;
 				},
 				Instruction::Write => {
 					writer.write_all(&[self.memory[self.dp]])?;
@@ -57,10 +57,11 @@ impl<'i> Interpreter<'i> {
 					}
 				},
 				Instruction::Set { amount, offset } => {
-					self.memory[self.dp + offset as usize] = amount as u8;
+					self.memory[(self.dp + offset as usize).rem_euclid(MEM_SIZE)] = amount as u8;
 				},
 				Instruction::Mul { amount, offset } => {
-					self.memory[self.dp + offset as usize] *= amount as u8
+					self.memory[(self.dp + offset as usize).rem_euclid(MEM_SIZE)] +=
+						self.memory[self.dp] * amount as u8
 				},
 			}
 

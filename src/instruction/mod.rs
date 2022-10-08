@@ -57,7 +57,7 @@ pub type Cell = i8;
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum Instruction {
-	IncrIp { amount: i64 },
+	IncrDp { amount: i64 },
 	Incr { amount: Cell, offset: i64 },
 	BranchIfZero { destination: u64 },
 	BranchIfNotZero { destination: u64 },
@@ -72,7 +72,7 @@ pub enum Instruction {
 impl fmt::Display for Instruction {
 	fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
 		match self {
-			Self::IncrIp { amount } => write!(f, "IP += {}", amount),
+			Self::IncrDp { amount } => write!(f, "DP += {}", amount),
 			Self::Incr { amount, offset } => write!(f, "MEM[DP + {}] += {}", offset, amount),
 			Self::BranchIfZero { destination } => write!(f, "BRANCH FWD {}", destination),
 			Self::BranchIfNotZero { destination } => write!(f, "BRANCH BCK {}", destination),
@@ -80,7 +80,7 @@ impl fmt::Display for Instruction {
 			Self::Write => write!(f, "WRITE <- MEM[DP]"),
 			Self::Set { amount, offset } => write!(f, "MEM[DP + {}] = {}", offset, amount),
 			Self::Mul { amount, offset } => {
-				write!(f, "MEM[DP + {}] += MEM[D] * {}", offset, amount)
+				write!(f, "MEM[DP + {}] += MEM[DP] * {}", offset, amount)
 			},
 		}
 	}
@@ -90,7 +90,7 @@ impl Instruction {
 	/// Encode the instruction as bytecode
 	pub fn to_bytecode(&self) -> Vec<u8> {
 		match self {
-			Self::IncrIp { amount } => {
+			Self::IncrDp { amount } => {
 				let mut inst_bytes = vec![0];
 				let amt_parts: [u8; 8] = amount.to_be_bytes();
 				inst_bytes.extend_from_slice(&amt_parts);

@@ -38,7 +38,7 @@ impl LinkedInstructions {
 					let amt_parts = take8(&mut byte_iter);
 					let amount = i64::from_be_bytes(amt_parts);
 
-					Instruction::IncrIp { amount }
+					Instruction::IncrDp { amount }
 				},
 				1 => {
 					let amount = *byte_iter.next().unwrap() as i8;

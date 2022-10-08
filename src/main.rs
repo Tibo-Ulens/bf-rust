@@ -61,6 +61,7 @@ fn make_config() -> Result<Config, Error> {
 					"combine-clears",
 					"group-instructions",
 					"reorder-instructions",
+					"combine-multiply-loops",
 				]),
 		)
 		.arg(Arg::new("file").help("The brainfuck file to run").index(1).required(true))

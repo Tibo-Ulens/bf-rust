@@ -1,3 +1,5 @@
+#![feature(iter_advance_by)]
+
 #[macro_use]
 extern crate bitflags;
 #[macro_use]

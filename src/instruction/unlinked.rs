@@ -8,8 +8,8 @@ impl UnlinkedInstructions {
 
 		for byte in bytes.iter() {
 			unlinked_insts.push(match byte {
-				b'>' => Instruction::IncrIp { amount: 1 },
-				b'<' => Instruction::IncrIp { amount: -1 },
+				b'>' => Instruction::IncrDp { amount: 1 },
+				b'<' => Instruction::IncrDp { amount: -1 },
 				b'+' => Instruction::Incr { amount: 1, offset: 0 },
 				b'-' => Instruction::Incr { amount: -1, offset: 0 },
 				b'[' => Instruction::BranchIfZero { destination: 0 },
