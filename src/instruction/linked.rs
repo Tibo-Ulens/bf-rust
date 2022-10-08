@@ -2,7 +2,10 @@ use std::slice::Iter;
 
 use super::{Instruction, LinkedInstructions};
 
-/// Take 8 bytes from an iterator to make 64 bit values
+/// Take 2 bytes from an iterator to make 16 bit values
+fn take2(i: &mut Iter<u8>) -> [u8; 2] { [*i.next().unwrap(), *i.next().unwrap()] }
+
+/// Take 8 bytes from an iterator to make 16 bit values
 fn take8(i: &mut Iter<u8>) -> [u8; 8] {
 	[
 		*i.next().unwrap(),
@@ -35,15 +38,15 @@ impl LinkedInstructions {
 		while let Some(b) = byte_iter.next() {
 			let inst = match b {
 				0 => {
-					let amt_parts = take8(&mut byte_iter);
-					let amount = i64::from_be_bytes(amt_parts);
+					let amt_parts = take2(&mut byte_iter);
+					let amount = i16::from_be_bytes(amt_parts);
 
 					Instruction::IncrDp { amount }
 				},
 				1 => {
 					let amount = *byte_iter.next().unwrap() as i8;
-					let ofst_parts = take8(&mut byte_iter);
-					let offset = i64::from_be_bytes(ofst_parts);
+					let ofst_parts = take2(&mut byte_iter);
+					let offset = i16::from_be_bytes(ofst_parts);
 
 					Instruction::Incr { amount, offset }
 				},
@@ -63,15 +66,15 @@ impl LinkedInstructions {
 				5 => Instruction::Write,
 				6 => {
 					let amount = *byte_iter.next().unwrap() as i8;
-					let ofst_parts = take8(&mut byte_iter);
-					let offset = i64::from_be_bytes(ofst_parts);
+					let ofst_parts = take2(&mut byte_iter);
+					let offset = i16::from_be_bytes(ofst_parts);
 
 					Instruction::Set { amount, offset }
 				},
 				7 => {
 					let amount = *byte_iter.next().unwrap() as i8;
-					let ofst_parts = take8(&mut byte_iter);
-					let offset = i64::from_be_bytes(ofst_parts);
+					let ofst_parts = take2(&mut byte_iter);
+					let offset = i16::from_be_bytes(ofst_parts);
 
 					Instruction::Mul { amount, offset }
 				},

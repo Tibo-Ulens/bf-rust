@@ -255,7 +255,7 @@ fn order_hmap_values<K: Ord + Hash + Eq, V>(map: HashMap<K, V>) -> Vec<V> {
 /// so there's only a single IncrIp
 fn reorder_sequence(insts: &[Instruction]) -> Vec<Instruction> {
 	// Keeps track of instructions with the same offset
-	let mut insts_by_offset: HashMap<i64, Vec<Instruction>> = HashMap::new();
+	let mut insts_by_offset: HashMap<i16, Vec<Instruction>> = HashMap::new();
 	// Keeps track of the current offset as set by IncrIp instructions
 	let mut current_offset = 0;
 
@@ -297,7 +297,7 @@ fn reorder_sequence(insts: &[Instruction]) -> Vec<Instruction> {
 /// Check if a series of instructions matches the multiply loop pattern
 ///
 /// If it is, return the cells that are affected
-fn is_multiply_loop(insts: &[Instruction]) -> Option<HashMap<i64, Cell>> {
+fn is_multiply_loop(insts: &[Instruction]) -> Option<HashMap<i16, Cell>> {
 	let mut net_movement = 0;
 
 	// Multiply loops can only contain Incr and IncrIp instructions
@@ -332,7 +332,7 @@ fn is_multiply_loop(insts: &[Instruction]) -> Option<HashMap<i64, Cell>> {
 /// Return a hashmap of all the cells that are affected by this
 /// sequence of instructions, and how much they change.
 /// E.g. "->>+++>+" -> {0: -1, 2: 3, 3: 1}
-fn cell_changes(insts: &[Instruction]) -> HashMap<i64, Cell> {
+fn cell_changes(insts: &[Instruction]) -> HashMap<i16, Cell> {
 	let mut changes = HashMap::new();
 	let mut cell_index = 0;
 
