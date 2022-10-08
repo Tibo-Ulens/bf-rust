@@ -4,10 +4,12 @@ mod linked;
 mod unlinked;
 
 /// Instructions which have not had their jump targets linked yet
+#[derive(Debug, Clone)]
 #[repr(transparent)]
 pub struct UnlinkedInstructions(pub Vec<Instruction>);
 
 /// Instructions which have had their jump targets linked
+#[derive(Debug, Clone, PartialEq, Eq)]
 #[repr(transparent)]
 pub struct LinkedInstructions(pub Vec<Instruction>);
 

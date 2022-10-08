@@ -6,6 +6,8 @@ use itertools::Itertools;
 use crate::error::Error;
 use crate::instruction::{Instruction, LinkedInstructions, UnlinkedInstructions};
 
+const MAX_OPT_ITER: u8 = 20;
+
 bitflags! {
 	pub struct Optimisations: u8 {
 		const COMBINE_CLEARS     = 0b00000001;
@@ -40,8 +42,24 @@ impl UnlinkedInstructions {
 	/// instruction
 	///  - Instruction grouping: repeated sequences of add/sub and left/right
 	/// instructions get combined into a single instruction
-	pub fn optimise(self, opts: Optimisations) -> Result<LinkedInstructions, Error> {
+	pub fn optimise(self, opts: &Optimisations) -> Result<LinkedInstructions, Error> {
+		let mut prev = self.clone();
+		let mut result = self.optimise_single_pass(&opts)?;
+
+		let mut counter = 0;
+		while prev.link()? != result && counter <= MAX_OPT_ITER {
+			prev = UnlinkedInstructions(result.0);
+			result = prev.clone().optimise_single_pass(&opts)?;
+
+			counter += 1;
+		}
+
+		Ok(result)
+	}
+
+	fn optimise_single_pass(self, opts: &Optimisations) -> Result<LinkedInstructions, Error> {
 		let mut optimised_insts = self.link()?;
+
 		if opts.contains(Optimisations::COMBINE_CLEARS) {
 			optimised_insts = optimised_insts.combine_clears().link()?;
 		}

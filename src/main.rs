@@ -114,7 +114,7 @@ fn make_config() -> Result<Config, Error> {
 fn handle_file(bytes: &[u8], cfg: &Config) -> Result<(), Error> {
 	let instructions = UnlinkedInstructions::from_text(bytes);
 
-	let optimised_instructions = instructions.optimise(cfg.optimisations)?;
+	let optimised_instructions = instructions.optimise(&cfg.optimisations)?;
 
 	if let Some(path) = &cfg.bytecode_path {
 		let mut output_writer = File::create(path)?;
