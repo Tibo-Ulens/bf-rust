@@ -90,30 +90,48 @@ impl LinkedInstructions {
 		UnlinkedInstructions(optimised_insts)
 	}
 
-	/// Group repeated sequences of Incr and IncrIp instructions into one
+	/// Group repeated sequences of Incr, Set, and IncrIp instructions into one
+	///
+	/// Also merges consecutive Incr and Set instructions into a single Set
 	fn group_instructions(self) -> UnlinkedInstructions {
 		UnlinkedInstructions(
 			self.0
 				.into_iter()
 				.coalesce(|prev, curr| {
-					if let Instruction::Incr { amount: prev_amt, offset: prev_ofst } = prev {
-						if let Instruction::Incr { amount, offset } = curr {
-							if prev_ofst == offset {
-								return Ok(Instruction::Incr { amount: prev_amt + amount, offset });
-							}
-						}
+					match (prev, curr) {
+						// Incr(x), Incr(y) -> Incr(x + y)
+						(
+							Instruction::Incr { amount: prev_amt, offset: prev_ofst },
+							Instruction::Incr { amount, offset },
+						) if prev_ofst == offset => {
+							let new_amt = prev_amt + amount;
+							Ok(Instruction::Incr { amount: new_amt, offset })
+						},
+						// IncrIp(x), IncrIp(y) -> IncrIp(x + y)
+						(
+							Instruction::IncrIp { amount: prev_amt },
+							Instruction::IncrIp { amount },
+						) => Ok(Instruction::IncrIp { amount: prev_amt + amount }),
+						// Incr(x), Set(y) -> Set(y)
+						(
+							Instruction::Incr { offset: prev_ofst, .. },
+							Instruction::Set { amount, offset },
+						) if prev_ofst == offset => Ok(Instruction::Set { amount, offset }),
+						// Set(x), Incr(y) -> Set(x + y)
+						(
+							Instruction::Set { amount: prev_amt, offset: prev_ofst },
+							Instruction::Incr { amount, offset },
+						) if prev_ofst == offset => {
+							let new_amt = prev_amt + amount;
+							Ok(Instruction::Set { amount: new_amt, offset })
+						},
+						// Set(x), Set(y) -> Set(y)
+						(
+							Instruction::Set { offset: prev_ofst, .. },
+							Instruction::Set { amount, offset },
+						) if prev_ofst == offset => Ok(Instruction::Set { amount, offset }),
+						_ => Err((prev, curr)),
 					}
-
-					Err((prev, curr))
-				})
-				.coalesce(|prev, curr| {
-					if let Instruction::IncrIp { amount: prev_amt } = prev {
-						if let Instruction::IncrIp { amount } = curr {
-							return Ok(Instruction::IncrIp { amount: prev_amt + amount });
-						}
-					}
-
-					Err((prev, curr))
 				})
 				.filter(|i| {
 					!(matches!(
