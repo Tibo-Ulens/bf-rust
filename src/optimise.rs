@@ -171,7 +171,7 @@ impl LinkedInstructions {
 		)
 	}
 
-	/// Reorder Incr and IncrIp instructions so the Incr instructions use
+	/// Reorder Incr, Set, and IncrIp instructions so the instructions use
 	/// offsets and there's only one IncrIp instruction at the end
 	///
 	/// eg. `++>+++>+` would become
