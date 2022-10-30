@@ -1,2 +1,2 @@
 # bf-rust
-Brainfuck interpreter in rust
+Optimising brainfuck interpreter in rust
